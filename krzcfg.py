@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 
+import os
 import csv
 import sys
 import speedtest
 import time
 from threading import Thread
+
+
+packages = 'freeradius freeradius-common freeradius-config freeradius-postgresql freeradius-utils freetds-common incron iserv-booking iserv-docker-libreoffice-online iserv-docker-libreoffice-online-data iserv-office iserv-poll iserv-schedule iserv-server-freeradius iserv-server-incron iserv-videoconference iserv-wlan iserv3-timetable libct4 libfreeradius3 iserv3-report krz-lemgo-remote-support'
+groups = 'krz'
+
 
 try:
     import psycopg2
@@ -31,17 +37,26 @@ def humansize(nbytes):
 
 
 def test_download():
+    global ds
     st = speedtest.Speedtest()
     ds = st.download()
-    # Readable
-    print('\nDownload speed: ' + humansize(ds) + '\n')
-    return(ds)
 
 
 def spinning_cursor():
     while True:
         for cursor in '|/–\\':
             yield cursor
+
+
+def install_packages(packages):
+    os.system('apt install ' + packages)
+
+
+def creategroups(groups):
+    try:
+        os.system('iservgroupadd ' + groups)
+    except Exception as e:
+        print(e)
 
 
 def load_speedtest():
@@ -55,6 +70,8 @@ def load_speedtest():
         time.sleep(0.1)
         sys.stdout.write('\b')
     sys.stdout.write('\b' * 24)
+    # Readable
+    print('\nDownload speed: ' + humansize(ds) + '\n')
 
 
 def sysconf():
@@ -66,7 +83,7 @@ def sysconf():
     data = data.replace('Region = ""', 'Region = "de_NW"')
     data = data.replace('DHCP = ("*")', 'DHCP = ("' +
                         question('Please enter internal NIC') + '")')
-    if test_download() > 100000000:
+    if ds > 100000000:
         data = data.replace('WindowsupdateProxyMaxDownloaders = 3',
                             'WindowsupdateProxyMaxDownloaders = 50')
     else:
@@ -93,12 +110,18 @@ def update_db():
     with open('privileges.csv', 'r') as f:
         reader = csv.reader(f, delimiter=';')
         next(reader)  # skips the header row.
-        for row in reader:
-            cur.execute("INSERT INTO privileges_assign VALUES (%s, %s)", row)
+        try:
+            for row in reader:
+                cur.execute(
+                    "INSERT INTO privileges_assign VALUES (%s, %s)", row)
+        except Exception as e:
+            print(e)
     conn.commit()
     conn.close()
 
 
+install_packages(packages)
+creategroups(groups)
 load_speedtest()
 sysconf()
 update_db()
