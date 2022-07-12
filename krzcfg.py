@@ -21,7 +21,7 @@ except:
 
 def question(question):
     """Simple question Function."""
-    prompt = f'{question} ?: '
+    prompt = f'{question}: '
     ans = input(prompt)
     return ans
 
@@ -120,8 +120,9 @@ def update_db():
     conn.close()
 
 
-install_packages(packages)
-creategroups(groups)
-load_speedtest()
-sysconf()
-update_db()
+if __name__ == "__main__":  # Only executes this script when it is executed directly
+    install_packages(packages)
+    creategroups(groups)
+    load_speedtest()
+    sysconf()
+    update_db()
