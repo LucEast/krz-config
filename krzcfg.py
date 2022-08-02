@@ -33,7 +33,7 @@ class Database:
         try:
             for row in reader:
                 cur.execute(
-                    "INSERT INTO %s VALUES (%s, %s)", [table, row])
+                    "INSERT INTO %s VALUES (%s, %s)", [self.table, row])
         except Exception as e:
             print(e)
     conn.commit()
