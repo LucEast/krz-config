@@ -19,6 +19,28 @@ except:
     quit()
 
 
+class Database:
+    def __init__(self, table):
+        self.table = table
+
+    def update_privileges(self):
+    print('Updating Database...')
+    conn = psycopg2.connect("dbname=iserv user=postgres")
+    cur = conn.cursor()
+    with open('privileges.csv', 'r') as f:
+        reader = csv.reader(f, delimiter=';')
+        next(reader)  # skips the header row.
+        try:
+            for row in reader:
+                cur.execute(
+                    "INSERT INTO %s VALUES (%s, %s)", [table, row])
+        except Exception as e:
+            print(e)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 def question(question):
     """Simple question Function."""
     prompt = f'{question}: '
@@ -103,21 +125,7 @@ def sysconf():
     print('Succesfully applied changes to system configuration.\n\n')
 
 
-def update_db():
-    print('Updating Database...')
-    conn = psycopg2.connect("dbname=iserv user=postgres")
-    cur = conn.cursor()
-    with open('privileges.csv', 'r') as f:
-        reader = csv.reader(f, delimiter=';')
-        next(reader)  # skips the header row.
-        try:
-            for row in reader:
-                cur.execute(
-                    "INSERT INTO privileges_assign VALUES (%s, %s)", row)
-        except Exception as e:
-            print(e)
-    conn.commit()
-    conn.close()
+
 
 
 if __name__ == "__main__":  # Only executes this script when it is executed directly
@@ -125,4 +133,6 @@ if __name__ == "__main__":  # Only executes this script when it is executed dire
     creategroups(groups)
     load_speedtest()
     sysconf()
-    update_db()
+    # update_db()
+    priv_assign = Database(privileges_assign)
+    priv_assign.update_privileges()
