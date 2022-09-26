@@ -6,10 +6,11 @@ import sys
 import speedtest
 import time
 from threading import Thread
+from psycopg2 import DatabaseError
 
 
 packages = 'freeradius freeradius-common freeradius-config freeradius-postgresql freeradius-utils freetds-common incron iserv-booking iserv-docker-libreoffice-online iserv-docker-libreoffice-online-data iserv-office iserv-poll iserv-schedule iserv-server-freeradius iserv-server-incron iserv-videoconference iserv-wlan iserv3-timetable libct4 libfreeradius3 iserv3-report krz-lemgo-remote-support'
-groups = 'krz'
+groups = '"Krz" "Sekretariat" "Schulleitung" "Kollegium"'
 
 
 try:
@@ -24,21 +25,50 @@ class Database:
         self.table = table
 
     def update_privileges(self):
-    print('Updating Database...')
-    conn = psycopg2.connect("dbname=iserv user=postgres")
-    cur = conn.cursor()
-    with open('privileges.csv', 'r') as f:
-        reader = csv.reader(f, delimiter=';')
-        next(reader)  # skips the header row.
-        try:
-            for row in reader:
+        print('Updating Database...')
+        conn = psycopg2.connect("dbname=iserv user=postgres")
+        cur = conn.cursor()
+        with open('privileges.csv', 'r') as f:
+            reader = csv.reader(f, delimiter=';')
+            next(reader)  # skips the header row.
+            try:
+                for row in reader:
+                    cur.execute(
+                        "INSERT INTO %s VALUES (%s, %s)", [self.table, row])
+            except Exception as e:
+                print(e)
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    def import_profile(self, file):
+        print("Creating Import-Profiles...")
+        if os.path.exists(file):
+            try:
+                conn = psycopg2.connect("dbname=iserv user=postgres")
+                cur = conn.cursor()
                 cur.execute(
-                    "INSERT INTO %s VALUES (%s, %s)", [self.table, row])
-        except Exception as e:
-            print(e)
-    conn.commit()
-    cur.close()
-    conn.close()
+                    "SELECT id, name from import_profile WHERE id <= 2 OR name = 'Schüler' OR name = 'Lehrer'")
+                rows = cur.fetchall()
+
+                if not rows:
+                    os.system('psql -f ' + file)
+                else:
+                    with open(file, 'r') as f:
+                        for line in f:
+                            try:
+                                cur.execute(line)
+                            except Exception as e:
+                                print(e)
+                                conn.rollback()
+                                pass
+                conn.commit()
+                cur.close()
+                conn.close()
+            except Exception as e:
+                print(e)
+        else:
+            print(file + ' does not exist.')
 
 
 def question(question):
@@ -125,14 +155,12 @@ def sysconf():
     print('Succesfully applied changes to system configuration.\n\n')
 
 
-
-
-
 if __name__ == "__main__":  # Only executes this script when it is executed directly
     install_packages(packages)
     creategroups(groups)
     load_speedtest()
     sysconf()
-    # update_db()
-    priv_assign = Database(privileges_assign)
+    priv_assign = Database("privileges_assign")
     priv_assign.update_privileges()
+    import_profile = Database("import_profile")
+    import_profile.import_profile("import_profile.sql")
