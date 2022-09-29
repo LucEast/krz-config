@@ -6,18 +6,43 @@ import sys
 import speedtest
 import time
 from threading import Thread
-from psycopg2 import DatabaseError
-
-
-packages = 'freeradius freeradius-common freeradius-config freeradius-postgresql freeradius-utils freetds-common incron iserv-booking iserv-docker-libreoffice-online iserv-docker-libreoffice-online-data iserv-office iserv-poll iserv-schedule iserv-server-freeradius iserv-server-incron iserv-videoconference iserv-wlan iserv3-timetable libct4 libfreeradius3 iserv3-report krz-lemgo-remote-support'
-groups = '"Krz" "Sekretariat" "Schulleitung" "Kollegium"'
-
 
 try:
     import psycopg2
 except:
     print('Install requirements with "pip3 install -r requirements.txt')
     quit()
+
+try:
+    import inquirer
+    from inquirer.themes import GreenPassion
+except:
+    print('Install requirements with "pip3 install -r requirements.txt')
+    quit()
+
+questions = [inquirer.Checkbox('options',
+                               message="What do you want to run?",
+                               choices=["Install packages", "Update privileges",
+                                        "Create Import-Profiles", "Create Groups", "Update Sysconf"],
+                               default=["Install packages", "Update privileges", "Create Import-Profiles", "Create Groups", "Update Sysconf"]),
+             ]
+
+answers = inquirer.prompt(questions, theme=GreenPassion())['options']
+
+packages = 'freeradius freeradius-common freeradius-config freeradius-postgresql freeradius-utils freetds-common incron iserv-booking iserv-docker-libreoffice-online iserv-docker-libreoffice-online-data iserv-office iserv-poll iserv-schedule iserv-server-freeradius iserv-server-incron iserv-videoconference iserv-wlan iserv3-timetable libct4 libfreeradius3 iserv3-report krz-lemgo-remote-support'
+groups = ["Krz", "Sekretariat", "Schulleitung", "Kollegium"]
+
+
+def install_packages(packages):
+    os.system('apt install ' + packages)
+
+
+def creategroups(groups):
+    try:
+        for group in groups:
+            os.system('iservgroupadd ' + group)
+    except Exception as e:
+        print(e)
 
 
 class Database:
@@ -100,17 +125,6 @@ def spinning_cursor():
             yield cursor
 
 
-def install_packages(packages):
-    os.system('apt install ' + packages)
-
-
-def creategroups(groups):
-    try:
-        os.system('iservgroupadd ' + groups)
-    except Exception as e:
-        print(e)
-
-
 def load_speedtest():
     thread = Thread(target=test_download)
     thread.start()
@@ -156,11 +170,19 @@ def sysconf():
 
 
 if __name__ == "__main__":  # Only executes this script when it is executed directly
-    install_packages(packages)
-    creategroups(groups)
-    load_speedtest()
-    sysconf()
-    priv_assign = Database("privileges_assign")
-    priv_assign.update_privileges()
-    import_profile = Database("import_profile")
-    import_profile.import_profile("import_profile.sql")
+    if not answers:
+        print("Nothing selected.\nAborting...")
+    for answer in answers:
+        if 'Install packages' in answer:
+            install_packages(packages)
+        if 'Update privileges' in answer:
+            priv_assign = Database("privileges_assign")
+            priv_assign.update_privileges()
+        if 'Create Import-Profiles' in answer:
+            profiles = Database("import_profile")
+            profiles.import_profile("import_profile.sql")
+        if 'Create Groups' in answer:
+            creategroups(groups)
+        if 'Update Sysconf' in answer:
+            load_speedtest()
+            sysconf()
