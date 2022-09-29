@@ -30,7 +30,7 @@ questions = [inquirer.Checkbox('options',
 answers = inquirer.prompt(questions, theme=GreenPassion())['options']
 
 packages = 'freeradius freeradius-common freeradius-config freeradius-postgresql freeradius-utils freetds-common incron iserv-booking iserv-docker-libreoffice-online iserv-docker-libreoffice-online-data iserv-office iserv-poll iserv-schedule iserv-server-freeradius iserv-server-incron iserv-videoconference iserv-wlan iserv3-timetable libct4 libfreeradius3 iserv3-report krz-lemgo-remote-support'
-groups = '"Krz" "Sekretariat" "Schulleitung" "Kollegium"'
+groups = ["Krz", "Sekretariat", "Schulleitung", "Kollegium"]
 
 
 def install_packages(packages):
@@ -39,7 +39,8 @@ def install_packages(packages):
 
 def creategroups(groups):
     try:
-        os.system('iservgroupadd ' + groups)
+        for group in groups:
+            os.system('iservgroupadd ' + group)
     except Exception as e:
         print(e)
 
