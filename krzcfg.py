@@ -16,18 +16,23 @@ except:
 try:
     import inquirer
     from inquirer.themes import GreenPassion
+    import inquirer.errors
 except:
     print('Install requirements with "pip3 install -r requirements.txt')
     quit()
 
-questions = [inquirer.Checkbox('options',
-                               message="What do you want to run?",
-                               choices=["Install packages", "Update privileges",
-                                        "Create Import-Profiles", "Create Groups", "Update Sysconf"],
-                               default=["Install packages", "Update privileges", "Create Import-Profiles", "Create Groups", "Update Sysconf"]),
-             ]
-
-answers = inquirer.prompt(questions, theme=GreenPassion())['options']
+def checkbox():
+    try:
+        questions = [inquirer.Checkbox('options',
+                                    message="What do you want to run?",
+                                    choices=["Install packages", "Update privileges",
+                                                "Create Import-Profiles", "Create Groups", "Update Sysconf", "Deny Websites"],
+                                    default=["Install packages", "Update privileges", "Create Import-Profiles", "Create Groups", "Update Sysconf", "Deny Websites"]),
+                    ]
+        answers = inquirer.prompt(questions, theme=GreenPassion())['options']
+    except KeyboardInterrupt:
+        sys.exit(0)
+    return answers
 
 packages = 'freeradius freeradius-common freeradius-config freeradius-postgresql freeradius-utils freetds-common incron iserv-booking iserv-docker-libreoffice-online iserv-docker-libreoffice-online-data iserv-office iserv-poll iserv-schedule iserv-server-freeradius iserv-server-incron iserv-videoconference iserv-wlan iserv3-timetable libct4 libfreeradius3 iserv3-report krz-lemgo-remote-support'
 groups = ["Krz", "Sekretariat", "Schulleitung", "Kollegium"]
@@ -41,6 +46,7 @@ def creategroups(groups):
     try:
         for group in groups:
             os.system('iservgroupadd ' + group)
+            print(f"Added group {group}")
     except Exception as e:
         print(e)
 
@@ -146,20 +152,20 @@ def sysconf():
         data = config.read()
 
     # Replace
+    data = data.replace('ShowLegalNotice = "none"', 'ShowLegalNotice = link')
+    data = data.replace('PrintDirectEnable = false', 'PrintDirectEnable = true')
+    data = data.replace('PrintDefault = true', 'PrintDefault = flase')
     data = data.replace('Region = ""', 'Region = "de_NW"')
     data = data.replace('DHCP = ("*")', 'DHCP = ("' +
                         question('Please enter internal NIC') + '")')
     if ds > 100000000:
         data = data.replace('WindowsupdateProxyMaxDownloaders = 3',
-                            'WindowsupdateProxyMaxDownloaders = 50')
+                            'WindowsupdateProxyMaxDownloaders = 30')
     else:
         data = data.replace('WindowsupdateProxyMaxDownloaders = 3',
-                            'WindowsupdateProxyMaxDownloaders = 15')
+                            'WindowsupdateProxyMaxDownloaders = 10')
     data = data.replace('DeployApplyAutoUpdates = false',
                         'DeployApplyAutoUpdates = true')
-    data = data.replace('PrintDefault = true', 'PrintDefault = false')
-    data = data.replace('PrintDirectEnable = flase',
-                        'PrintDirectEnable = true')
     data = data.replace('GrpVeyon = "lehrer"', 'GrpVeyon = "kollegium"')
 
     # Write changes to file
@@ -169,20 +175,37 @@ def sysconf():
     print('Succesfully applied changes to system configuration.\n\n')
 
 
+def deny_websites(sites):
+    with open("/usr/share/iserv/iconf/etc/squidguard/deny.local", "a+") as deny:
+        data = deny.read()
+        if sites in data:
+            return 'Webseiten bereits verboten!'
+        deny.write(sites)
+
+
 if __name__ == "__main__":  # Only executes this script when it is executed directly
+    answers = checkbox()
     if not answers:
         print("Nothing selected.\nAborting...")
     for answer in answers:
-        if 'Install packages' in answer:
-            install_packages(packages)
-        if 'Update privileges' in answer:
-            priv_assign = Database("privileges_assign")
-            priv_assign.update_privileges()
-        if 'Create Import-Profiles' in answer:
-            profiles = Database("import_profile")
-            profiles.import_profile("import_profile.sql")
-        if 'Create Groups' in answer:
-            creategroups(groups)
-        if 'Update Sysconf' in answer:
-            load_speedtest()
-            sysconf()
+        match answer:
+            case 'Install packages':
+                install_packages(packages)
+
+            case 'Update privileges':
+                priv_assign = Database("privileges_assign")
+                priv_assign.update_privileges()
+    
+            case 'Create Import-Profiles':
+                profiles = Database("import_profile")
+                profiles.import_profile("import_profile.sql")
+
+            case 'Create Groups':
+                creategroups(groups)
+
+            case 'Update Sysconf':
+                load_speedtest()
+                sysconf()
+
+            case 'Deny Websites':
+                deny_websites('instagram.com\ntiktok.com\ntwitter.com\nfacebook.com\nsnapchat.com')
